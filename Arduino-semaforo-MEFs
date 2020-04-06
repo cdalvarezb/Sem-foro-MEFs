@@ -1,0 +1,216 @@
+#include <Arduino.h>
+#include <avr/io.h> //Librería que habilita entradas y salidas
+#include <avr/interrupt.h> //Librería que habilita interrupciones
+
+//Se selleccionan los pines de entrada donde se conectan los leds
+//Pines vehiculares
+int Vehicular_Verde = 12; 
+int Vehicular_Amarillo = 11;
+int Vehicular_Rojo = 10;
+//Pines peatonales 
+int Peatonal_Rojo = 4; 
+int Peatonal_Verde = 3;
+
+
+int z = 0;// variable de 16 bits para pulsos
+
+
+byte time=1; 
+
+unsigned long previusMillis=0;       // Funcion millis
+unsigned long interval;
+//AQUI  TIENES LOS TIEMPO DE DURACION DE CADA LUZ 
+unsigned long tiempo_Vehicular_Verde=85000,        //Duración de cada led y parpadeo 
+              tiempo_Vehicular_Amarillo=5000,
+              tiempo_Rojo_Vehicular=20000;
+            
+
+void setup()  // Declarar los pines de salida indicadores y botones
+ { 
+  Serial.begin(9600);               
+//Semáforo vehículos
+pinMode (Vehicular_Verde,OUTPUT);
+pinMode (Vehicular_Amarillo,OUTPUT);
+pinMode (Vehicular_Rojo,OUTPUT);
+//Semáforo peatones
+pinMode (Peatonal_Verde,OUTPUT);
+pinMode (Peatonal_Rojo,OUTPUT);
+
+ 
+  
+//Configuración del botón de peatones
+  DDRD &= ~(1<<PD2);  // PD2 como input (para INT0): pulsador.
+  PORTD |= 1<<PD2;  // pull-up resistor
+  EIMSK = 0B00000001;  //Habilitar INT0 
+  EICRA = 0B00000010;  //el borde descendente genera una interrupción
+
+  sei();        //habilitar interrupcciones
+
+ }
+
+void loop()
+
+
+{
+  
+
+ switch(time) //Programación por casos del semáforo
+  {
+    case 1:                         // verde vehicular y rojo peatonal encendidos
+      digitalWrite(Vehicular_Verde,HIGH);
+      digitalWrite(Vehicular_Amarillo,LOW);
+      digitalWrite(Vehicular_Rojo ,LOW);
+       digitalWrite(Peatonal_Rojo ,HIGH);
+      digitalWrite(Peatonal_Verde ,LOW);
+      interval=tiempo_Vehicular_Verde;
+      previusMillis=millis();
+      time=2;
+      break;   
+   
+   case 2: //Parpadeo 5 segundos luz verde
+      if(millis() -previusMillis>=interval){
+          
+          blink1();
+          time=3;
+
+        }
+
+  break;
+    case 3: //Amarillo vehicular y rojo peatonal encendidos
+        if(millis() -previusMillis>=interval){
+         
+            digitalWrite(Vehicular_Verde,LOW);
+            digitalWrite(Vehicular_Amarillo,HIGH);
+            digitalWrite(Vehicular_Rojo ,LOW);
+            digitalWrite(Peatonal_Rojo ,HIGH);
+            digitalWrite(Peatonal_Verde ,LOW);
+         time=4;
+        previusMillis=millis();
+          interval=tiempo_Vehicular_Amarillo;     
+        }
+                     
+          break;
+    
+   
+   
+   case 4:
+        if(millis() -previusMillis>=interval){ // rojo vehicular y verde peatonal encendidos
+         
+            digitalWrite(Vehicular_Verde,LOW);
+            digitalWrite(Vehicular_Amarillo,LOW);
+            digitalWrite(Vehicular_Rojo,HIGH);
+            digitalWrite(Peatonal_Rojo ,LOW);
+            digitalWrite(Peatonal_Verde ,HIGH);
+         time=5;
+        previusMillis=millis();
+          interval=tiempo_Rojo_Vehicular;     
+        }
+                     
+          break;  
+   
+   case 5:
+   if(millis() -previusMillis>=interval){ //activa el parpadeo verde peatonal 
+     
+          blink2();
+          time=6;
+   
+   }
+      
+   
+    case 6:
+      if(millis() -previusMillis>=interval)
+               time=1;
+        break; 
+  }
+
+}
+
+
+void blink1() //Parpadeo del led verde vehicular durante 5 segundos
+{
+    digitalWrite (Vehicular_Verde,LOW);
+    delay(500);
+    digitalWrite (Vehicular_Verde,HIGH);
+    delay(500);
+    digitalWrite (Vehicular_Verde,LOW);
+    delay(500);
+    digitalWrite (Vehicular_Verde,HIGH);
+    delay(500);
+    digitalWrite (Vehicular_Verde,LOW);
+    delay(500);
+    digitalWrite (Vehicular_Verde,HIGH);
+    delay(500);
+    digitalWrite (Vehicular_Verde,LOW);
+    delay(500);
+    digitalWrite (Vehicular_Verde,HIGH);
+    delay(500);
+    digitalWrite (Vehicular_Verde,LOW);
+    delay(500);
+    digitalWrite (Vehicular_Verde,HIGH);
+    delay(500);
+    digitalWrite (Vehicular_Verde,LOW);
+}
+  
+  void blink2() // parpadeo verde peatonal durante 5 segundos
+  {
+    
+     digitalWrite (Peatonal_Verde,LOW);
+    delay(500);
+    digitalWrite (Peatonal_Verde,HIGH);
+    delay(500);
+    digitalWrite (Peatonal_Verde,LOW);
+    delay(500);
+    digitalWrite (Peatonal_Verde,HIGH);
+    delay(500);
+    digitalWrite (Peatonal_Verde,LOW);
+    delay(500);
+    digitalWrite (Peatonal_Verde,HIGH);
+    delay(500);
+    digitalWrite (Peatonal_Verde,LOW);
+    delay(500);
+    digitalWrite (Peatonal_Verde,HIGH);
+    delay(500);
+    digitalWrite (Peatonal_Verde,LOW);
+    delay(500);
+    digitalWrite (Peatonal_Verde,HIGH);
+    delay(500);
+    digitalWrite (Peatonal_Verde,LOW);
+  }
+
+
+ISR(INT0_vect)//Se pregunta si se está pulsando el botón
+{
+    if (digitalRead (Peatonal_Rojo) == HIGH)//Se pregunta si el peatonal rojo está activado, en caso de que sea afirmativo, contará las pulsaciones
+      
+    {
+      z++; //cuenta las pulsaciones del botón 
+      Serial.println(z);
+      delay(100);
+        
+      if (z == 5 )//Si el número de pulsaciones es 5, cambia el estado del semáforo.
+      {
+        z=0;
+
+//Se cambia el semáforo a rojo vehicular y verde peatonal
+            digitalWrite(Vehicular_Verde,LOW);
+            digitalWrite(Vehicular_Amarillo,LOW);
+            digitalWrite(Vehicular_Rojo,HIGH);
+            digitalWrite(Peatonal_Rojo ,LOW);
+            digitalWrite(Peatonal_Verde ,HIGH);
+            previusMillis=millis();
+            interval=tiempo_Rojo_Vehicular; 
+
+            blink2(); //activa el parpadeo del verde peatonal por 5 segundos
+            
+   
+    }
+      
+    }
+  
+  
+}
+
+void seq() //Se devuelve al void loop
+{
+loop();
+}//VOID SEQQ
